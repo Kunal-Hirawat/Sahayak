@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mobile-first base styles */
+@layer base {
+  :root {
+    --sahayak-blue: #2E7D9A;
+    --sahayak-green: #4A9B4E;
+    --sahayak-orange: #E67E22;
+    --sahayak-gray-50: #F8F9FA;
+    --sahayak-gray-100: #E9ECEF;
+    --sahayak-gray-200: #DEE2E6;
+    --sahayak-gray-300: #CED4DA;
+    --sahayak-gray-400: #ADB5BD;
+    --sahayak-gray-500: #6C757D;
+    --sahayak-gray-600: #495057;
+    --sahayak-gray-700: #343A40;
+    --sahayak-gray-800: #212529;
+    --sahayak-gray-900: #1A1E21;
+  }
+
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background-color: var(--sahayak-gray-50);
+    color: var(--sahayak-gray-800);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  /* Ensure touch targets are at least 44px */
+  button,
+  [role="button"],
+  input[type="submit"],
+  input[type="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Component layer for reusable patterns */
+@layer components {
+  .btn-primary {
+    @apply bg-sahayak-blue text-white px-6 py-3 rounded-lg font-medium text-base;
+    @apply hover:bg-blue-700 active:bg-blue-800 transition-colors duration-200;
+    @apply focus:outline-none focus:ring-2 focus:ring-sahayak-blue focus:ring-offset-2;
+  }
+
+  .btn-secondary {
+    @apply bg-sahayak-green text-white px-6 py-3 rounded-lg font-medium text-base;
+    @apply hover:bg-green-700 active:bg-green-800 transition-colors duration-200;
+    @apply focus:outline-none focus:ring-2 focus:ring-sahayak-green focus:ring-offset-2;
+  }
+
+  .btn-accent {
+    @apply bg-sahayak-orange text-white px-6 py-3 rounded-lg font-medium text-base;
+    @apply hover:bg-orange-600 active:bg-orange-700 transition-colors duration-200;
+    @apply focus:outline-none focus:ring-2 focus:ring-sahayak-orange focus:ring-offset-2;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-sahayak-gray-200 p-4;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 border border-sahayak-gray-300 rounded-lg;
+    @apply focus:outline-none focus:ring-2 focus:ring-sahayak-blue focus:border-transparent;
+    @apply text-base bg-white;
+  }
+
+  .mobile-container {
+    @apply max-w-mobile mx-auto px-4 py-2;
+  }
+
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-white border-t border-sahayak-gray-200;
+    @apply flex items-center justify-around py-2 px-4;
+    @apply max-w-mobile mx-auto;
+  }
+
+  .nav-item {
+    @apply flex flex-col items-center justify-center p-2 min-w-0 flex-1;
+    @apply text-sahayak-gray-500 hover:text-sahayak-blue transition-colors duration-200;
+  }
+
+  .nav-item.active {
+    @apply text-sahayak-blue;
+  }
+}
+
+/* Utility layer for custom utilities */
+@layer utilities {
+  .safe-area-inset {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .pb-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+  }
+
+  .mb-nav {
+    margin-bottom: 80px; /* Account for bottom navigation */
+  }
+
+  .bg-sahayak-orange {
+    background-color: var(--sahayak-orange);
+  }
+}
