@@ -1,0 +1,576 @@
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
+import { useApp } from '../contexts/AppContext'
+import {
+  Image,
+  ArrowLeft,
+  Loader,
+  Palette,
+  BookOpen,
+  Layers,
+  Sparkles,
+  Copy,
+  Download,
+  Share2,
+  Pencil,
+  Eraser,
+  Undo,
+  Redo,
+  Maximize,
+  Minimize,
+  RefreshCw
+} from 'lucide-react'
+
+const CreateVisualAid = () => {
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const { addNotification, isOnline, addToSyncQueue } = useApp()
+
+  const [step, setStep] = useState('input') // 'input', 'generating', 'result'
+  const [formData, setFormData] = useState({
+    subject: 'Science',
+    topic: '',
+    gradeLevel: '3',
+    visualType: 'diagram',
+    complexity: 'medium',
+    colorScheme: 'colorful',
+    includeLabels: true,
+    includeExplanation: true,
+    size: 'medium',
+    style: 'simple'
+  })
+  const [generatedVisual, setGeneratedVisual] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  const subjects = [
+    'Science', 'Math', 'Social Studies', 'Geography', 'History',
+    'Environmental Studies', 'Biology', 'Physics', 'Chemistry'
+  ]
+
+  const visualTypes = [
+    { value: 'diagram', label: 'Diagram', description: 'Labeled illustration of a concept or process', icon: '📊' },
+    { value: 'chart', label: 'Chart/Graph', description: 'Visual representation of data or relationships', icon: '📈' },
+    { value: 'map', label: 'Map', description: 'Geographical or conceptual map', icon: '🗺️' },
+    { value: 'flowchart', label: 'Flowchart', description: 'Step-by-step process visualization', icon: '⏩' },
+    { value: 'infographic', label: 'Infographic', description: 'Information-rich visual summary', icon: '📋' },
+    { value: 'illustration', label: 'Illustration', description: 'Detailed drawing of a concept', icon: '🖼️' }
+  ]
+
+  const gradeLevels = [
+    { value: '1', label: 'Grade 1-2 (Ages 6-8)' },
+    { value: '3', label: 'Grade 3-4 (Ages 8-10)' },
+    { value: '5', label: 'Grade 5-6 (Ages 10-12)' },
+    { value: '7', label: 'Grade 7-8 (Ages 12-14)' }
+  ]
+
+  const colorSchemes = [
+    { value: 'colorful', label: 'Colorful', description: 'Bright, engaging colors for younger students' },
+    { value: 'muted', label: 'Muted Colors', description: 'Softer, less distracting colors' },
+    { value: 'blackboard', label: 'Blackboard Style', description: 'White/yellow on dark background like a blackboard' },
+    { value: 'monochrome', label: 'Monochrome', description: 'Single color with different shades' }
+  ]
+
+  const handleGenerate = async () => {
+    if (!formData.topic.trim()) {
+      addNotification('Please enter a topic for the visual aid', 'error')
+      return
+    }
+
+    setLoading(true)
+    setStep('generating')
+
+    try {
+      // Call actual API endpoint
+      const response = await fetch('http://localhost:5000/api/visual-aid/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          topic: formData.topic,
+          subject: formData.subject,
+          gradeLevel: formData.gradeLevel,
+          visualType: formData.visualType,
+          complexity: formData.complexity,
+          colorScheme: formData.colorScheme,
+          includeLabels: formData.includeLabels,
+          includeExplanation: formData.includeExplanation,
+          size: formData.size,
+          style: formData.style
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.status === 'success') {
+        // Set the generated visual with actual image data
+        setGeneratedVisual({
+          title: result.data.title,
+          description: result.data.description,
+          imageData: result.data.image_data,
+          metadata: result.data.metadata,
+          visualType: formData.visualType,
+          subject: formData.subject,
+          createdBy: user?.name || 'Teacher',
+          gradeLevel: formData.gradeLevel,
+          createdAt: new Date().toISOString()
+        })
+        setStep('result')
+
+        if (!isOnline) {
+          addToSyncQueue({
+            type: 'visual_aid',
+            data: { formData, result: result.data },
+            timestamp: Date.now()
+          })
+        }
+
+        addNotification('Visual aid generated successfully!', 'success')
+      } else {
+        throw new Error(result.message || 'Failed to generate visual aid')
+      }
+    } catch (error) {
+      console.error('Error generating visual aid:', error)
+      addNotification(error.message || 'Failed to generate visual aid. Please try again.', 'error')
+      setStep('input')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRetry = () => {
+    setStep('input')
+    setGeneratedVisual(null)
+  }
+
+  const handleCopy = () => {
+    const textToCopy = `Visual Aid: ${generatedVisual.title}\n\nDescription: ${generatedVisual.description}\n\nGenerated by Sahayak AI`
+    navigator.clipboard.writeText(textToCopy)
+    addNotification('Visual aid details copied to clipboard!', 'success')
+  }
+
+  const handleShare = () => {
+    if (navigator.share && generatedVisual.imageData) {
+      // Convert base64 to blob for sharing
+      const byteCharacters = atob(generatedVisual.imageData)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'image/png' })
+      const file = new File([blob], `${generatedVisual.metadata?.topic || 'visual-aid'}.png`, { type: 'image/png' })
+
+      navigator.share({
+        title: generatedVisual.title,
+        text: generatedVisual.description,
+        files: [file]
+      }).catch(err => {
+        console.log('Error sharing:', err)
+        addNotification('Sharing not supported on this device', 'info')
+      })
+    } else {
+      addNotification('Sharing not supported on this device', 'info')
+    }
+  }
+
+  const handleDownloadImage = () => {
+    if (generatedVisual.imageData) {
+      const link = document.createElement('a')
+      link.href = `data:image/png;base64,${generatedVisual.imageData}`
+      link.download = `${generatedVisual.metadata?.topic || 'visual-aid'}.png`
+      link.click()
+      addNotification('Image downloaded successfully!', 'success')
+    }
+  }
+
+  const handleSave = () => {
+    addNotification('Visual aid saved to your library!', 'success')
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <button
+            onClick={() => navigate('/')}
+            className="mr-3 p-2 hover:bg-sahayak-gray-100 rounded-lg"
+          >
+            <ArrowLeft size={20} className="text-sahayak-gray-600" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-sahayak-gray-800">
+              Visual Aid Generator
+            </h1>
+            <p className="text-sahayak-gray-600">
+              Create blackboard diagrams and visual aids
+            </p>
+          </div>
+        </div>
+        <div className="w-12 h-12 bg-sahayak-green rounded-lg flex items-center justify-center">
+          <Image size={24} className="text-white" />
+        </div>
+      </div>
+
+      {step === 'input' && (
+        <div className="space-y-6">
+          {/* Basic Settings */}
+          <div className="card">
+            <h3 className="text-lg font-semibold text-sahayak-gray-800 mb-4">
+              Visual Aid Details
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-sahayak-gray-700 mb-2">
+                  Topic or Concept
+                </label>
+                <input
+                  type="text"
+                  value={formData.topic}
+                  onChange={(e) => setFormData({...formData, topic: e.target.value})}
+                  placeholder="e.g., Plant Cell, Water Cycle, Solar System, Fractions"
+                  className="input-field"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-sahayak-gray-700 mb-2">
+                    Subject
+                  </label>
+                  <select
+                    value={formData.subject}
+                    onChange={(e) => setFormData({...formData, subject: e.target.value})}
+                    className="input-field"
+                  >
+                    {subjects.map(subject => (
+                      <option key={subject} value={subject}>{subject}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-sahayak-gray-700 mb-2">
+                    Grade Level
+                  </label>
+                  <select
+                    value={formData.gradeLevel}
+                    onChange={(e) => setFormData({...formData, gradeLevel: e.target.value})}
+                    className="input-field"
+                  >
+                    {gradeLevels.map(grade => (
+                      <option key={grade.value} value={grade.value}>{grade.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Visual Type Selection */}
+          <div className="card">
+            <h3 className="text-lg font-semibold text-sahayak-gray-800 mb-4">
+              Choose Visual Type
+            </h3>
+
+            <div className="grid grid-cols-1 gap-3">
+              {visualTypes.map(type => (
+                <label key={type.value} className="flex items-start p-3 border-2 rounded-lg cursor-pointer hover:bg-sahayak-gray-50 transition-colors">
+                  <input
+                    type="radio"
+                    name="visualType"
+                    value={type.value}
+                    checked={formData.visualType === type.value}
+                    onChange={(e) => setFormData({...formData, visualType: e.target.value})}
+                    className="mt-1 mr-3"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center mb-1">
+                      <span className="text-lg mr-2">{type.icon}</span>
+                      <span className="font-medium text-sahayak-gray-800">{type.label}</span>
+                    </div>
+                    <p className="text-sm text-sahayak-gray-600">{type.description}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Style & Appearance */}
+          <div className="card">
+            <h3 className="text-lg font-semibold text-sahayak-gray-800 mb-4">
+              Style & Appearance
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-sahayak-gray-700 mb-3">
+                  <Palette size={16} className="inline mr-1" />
+                  Color Scheme
+                </label>
+                <div className="space-y-2">
+                  {colorSchemes.map(scheme => (
+                    <label key={scheme.value} className="flex items-start">
+                      <input
+                        type="radio"
+                        name="colorScheme"
+                        value={scheme.value}
+                        checked={formData.colorScheme === scheme.value}
+                        onChange={(e) => setFormData({...formData, colorScheme: e.target.value})}
+                        className="mt-1 mr-3"
+                      />
+                      <div>
+                        <div className="font-medium text-sahayak-gray-800">{scheme.label}</div>
+                        <div className="text-sm text-sahayak-gray-600">{scheme.description}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-sahayak-gray-700 mb-2">
+                    Complexity Level
+                  </label>
+                  <select
+                    value={formData.complexity}
+                    onChange={(e) => setFormData({...formData, complexity: e.target.value})}
+                    className="input-field"
+                  >
+                    <option value="simple">Simple</option>
+                    <option value="medium">Medium</option>
+                    <option value="detailed">Detailed</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-sahayak-gray-700 mb-2">
+                    Size
+                  </label>
+                  <select
+                    value={formData.size}
+                    onChange={(e) => setFormData({...formData, size: e.target.value})}
+                    className="input-field"
+                  >
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.includeLabels}
+                    onChange={(e) => setFormData({...formData, includeLabels: e.target.checked})}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-sahayak-gray-700">Include labels and annotations</span>
+                </label>
+
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.includeExplanation}
+                    onChange={(e) => setFormData({...formData, includeExplanation: e.target.checked})}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-sahayak-gray-700">Include explanation text</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Generate Button */}
+          <button
+            onClick={handleGenerate}
+            disabled={loading || !formData.topic.trim()}
+            className="btn-primary w-full flex items-center justify-center"
+          >
+            <Sparkles size={20} className="mr-2" />
+            Generate Visual Aid
+          </button>
+        </div>
+      )}
+
+      {step === 'generating' && (
+        <div className="card text-center py-12">
+          <Loader size={48} className="animate-spin text-sahayak-green mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-sahayak-gray-800 mb-2">
+            Creating Your Visual Aid...
+          </h3>
+          <p className="text-sahayak-gray-600">
+            Designing a {formData.visualType} about {formData.topic} for Grade {formData.gradeLevel}
+          </p>
+        </div>
+      )}
+
+      {step === 'result' && generatedVisual && (
+        <div className="space-y-6">
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setStep('input')}
+              className="flex items-center text-sahayak-blue hover:bg-blue-50 px-3 py-2 rounded-lg"
+            >
+              <ArrowLeft size={16} className="mr-1" />
+              Create Another
+            </button>
+
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleCopy}
+                className="flex items-center text-sahayak-gray-600 hover:bg-sahayak-gray-100 px-3 py-2 rounded-lg"
+              >
+                <Copy size={16} className="mr-1" />
+                Copy
+              </button>
+              <button
+                onClick={handleSave}
+                className="flex items-center text-sahayak-gray-600 hover:bg-sahayak-gray-100 px-3 py-2 rounded-lg"
+              >
+                <Download size={16} className="mr-1" />
+                Save
+              </button>
+              <button
+                onClick={handleShare}
+                className="flex items-center text-sahayak-blue hover:bg-blue-50 px-3 py-2 rounded-lg"
+              >
+                <Share2 size={16} className="mr-1" />
+                Share
+              </button>
+            </div>
+          </div>
+
+          {/* Visual Preview */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <Image size={20} className="text-sahayak-green mr-2" />
+                <h3 className="text-lg font-semibold text-sahayak-gray-800">
+                  {generatedVisual.title}
+                </h3>
+              </div>
+              <p className="text-sm text-sahayak-gray-600">
+                Created by: {generatedVisual.createdBy}
+              </p>
+            </div>
+
+            <p className="text-sahayak-gray-600 mb-6">{generatedVisual.description}</p>
+
+            {/* Generated Visual Aid */}
+            <div className="bg-white rounded-lg border-2 border-sahayak-gray-200 mb-6 overflow-hidden">
+              {generatedVisual.imageData ? (
+                <div className="relative">
+                  <img
+                    src={`data:image/png;base64,${generatedVisual.imageData}`}
+                    alt={generatedVisual.title}
+                    className="w-full h-auto max-w-full object-contain"
+                    style={{ maxHeight: '70vh' }}
+                  />
+                  <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                    AI Generated
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-sahayak-gray-100 p-8 text-center min-h-64 flex items-center justify-center">
+                  <div className="text-sahayak-gray-600">
+                    <div className="text-lg font-medium mb-2">Visual Aid Preview</div>
+                    <div className="text-sm">Generated image will appear here</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {generatedVisual.explanation && (
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h4 className="font-medium text-sahayak-gray-800 mb-2">Explanation</h4>
+                <p className="text-sahayak-gray-700">{generatedVisual.explanation}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Visual Aid Details */}
+          <div className="card">
+            <h4 className="font-semibold text-sahayak-gray-800 mb-3 flex items-center">
+              <Pencil size={18} className="mr-2 text-sahayak-orange" />
+              Visual Aid Details
+            </h4>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-sahayak-gray-200">
+                <span className="text-sahayak-gray-600">Subject:</span>
+                <span className="font-medium text-sahayak-gray-800">{generatedVisual.metadata?.subject}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-sahayak-gray-200">
+                <span className="text-sahayak-gray-600">Grade Level:</span>
+                <span className="font-medium text-sahayak-gray-800">Grade {generatedVisual.metadata?.grade}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-sahayak-gray-200">
+                <span className="text-sahayak-gray-600">Visual Type:</span>
+                <span className="font-medium text-sahayak-gray-800">{generatedVisual.visualType}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-sahayak-gray-600">Created By:</span>
+                <span className="font-medium text-sahayak-gray-800">{generatedVisual.createdBy}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Usage Instructions */}
+          <div className="card">
+            <h4 className="font-semibold text-sahayak-gray-800 mb-3 flex items-center">
+              <BookOpen size={18} className="mr-2 text-sahayak-blue" />
+              How to Use This Visual Aid
+            </h4>
+            <div className="space-y-3 text-sahayak-gray-700">
+              <div className="flex items-start">
+                <span className="text-sahayak-blue mr-2 mt-1">•</span>
+                <span>Display this image on a projector or print it for classroom use</span>
+              </div>
+              <div className="flex items-start">
+                <span className="text-sahayak-blue mr-2 mt-1">•</span>
+                <span>Use as a reference while teaching {generatedVisual.metadata?.topic}</span>
+              </div>
+              <div className="flex items-start">
+                <span className="text-sahayak-blue mr-2 mt-1">•</span>
+                <span>Encourage students to ask questions about different parts of the diagram</span>
+              </div>
+              <div className="flex items-start">
+                <span className="text-sahayak-blue mr-2 mt-1">•</span>
+                <span>Save this image for future lessons on the same topic</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="card">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleRetry}
+                className="btn-secondary flex items-center justify-center"
+              >
+                <RefreshCw size={16} className="mr-2" />
+                Generate Another
+              </button>
+              <button
+                onClick={handleDownloadImage}
+                className="btn-primary flex items-center justify-center"
+              >
+                <Download size={16} className="mr-2" />
+                Download Image
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default CreateVisualAid
